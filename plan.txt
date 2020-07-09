@@ -1,0 +1,21 @@
+
+async def extract_video_image(url, list_proxies=None):
+    if list is None:
+        driver[proxy_ip]
+    else:
+        default driver settings
+
+    url -> html_obj
+
+    for
+        extract video -> async fileio save
+    for
+        extract img -> async fileio save
+
+async def gather_coroutines(list_urls):
+    list_co = []
+    for url in list_urls:
+        list_co.append(extract_video_image(url))
+    await asyncio.gather(*coro_list)
+
+
