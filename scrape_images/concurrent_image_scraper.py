@@ -1,10 +1,12 @@
 import asyncio
 import os
+from typing import Tuple, Union
 import aiohttp
+import bs4
 from aiofile import AIOFile
 from bs4 import BeautifulSoup
 import random
-from arsenic import get_session, keys, browsers, services
+from arsenic import get_session, browsers, services
 
 
 def check_file_exist(file_name):
@@ -12,12 +14,12 @@ def check_file_exist(file_name):
     return os.path.isfile(path)
 
 
-def is_meme(response_header_length, img_size=15_000):
+def is_meme(response_header_length: str, img_size: int = 15_000) -> bool:
     # 15,000 refers to the size of the file since memes tend to be larger pictures
     return int(response_header_length) > img_size
 
 
-async def save_meme(link, file_name):
+async def save_meme(link: str, file_name: str) -> None:
     async with aiohttp.ClientSession() as session:
         async with session.get(link) as response:
             if is_meme(response.headers['Content-Length']):
@@ -26,7 +28,7 @@ async def save_meme(link, file_name):
                     await afp.fsync()
 
 
-async def extract_image(img: object):
+async def extract_image(img: bs4.element.Tag) -> Union[Tuple, None]:
     endings = ['jpg', 'png']
     try:
         link = img['src']
@@ -40,21 +42,24 @@ async def extract_image(img: object):
                 file_name_list[-1] = '.jpg'
                 file_name = "".join(file_name_list)
         if not check_file_exist(file_name):
-            await save_meme(link, file_name)
+            return link, file_name
         else:
             print("Already Exists")
+            return None
     except KeyError as e:
         print(str(e) + " image")
+        return None
 
 
-async def extract_images_video(source):
+async def extract_images_video(source: object) -> None:
     soup = BeautifulSoup(source, 'html.parser')
     container = soup.find(class_="rpBJOHq2PR60pnwJlUyP0")
     for img in container.find_all('img'):
-        await extract_image(img)
+        if (file_name := await extract_image(img)) is not None:
+            await save_meme(*file_name)
 
 
-async def create_source_selenium(url: str, proxy_list: list = None):
+async def create_source_selenium(url: str, proxy_list: list = None) -> str:
     service = services.Chromedriver(binary="./chromedriver")
     if proxy_list is not None:
         browser = browsers.Chrome(chromeOptions={
@@ -67,7 +72,7 @@ async def create_source_selenium(url: str, proxy_list: list = None):
         return await session.get_page_source()
 
 
-async def gather(url_list: list, proxy_list=None):
+async def gather(url_list: list, proxy_list=None) -> None:
     coro_list = []
     for url in url_list:
         source = await create_source_selenium(url, proxy_list)
@@ -76,7 +81,8 @@ async def gather(url_list: list, proxy_list=None):
 
 
 def main():
-    urls = ["https://www.reddit.com/", "https://www.reddit.com/r/dankmemes/", 'https://www.reddit.com/r/memes/']
+    # ["https://www.reddit.com/", "https://www.reddit.com/r/dankmemes/", 'https://www.reddit.com/r/memes/']urls =
+    urls = ['http://127.0.0.1:5000/static/test.html']
     loop = asyncio.get_event_loop()
     loop.run_until_complete(gather(urls))
 
