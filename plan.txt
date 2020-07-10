@@ -19,3 +19,7 @@ async def gather_coroutines(list_urls):
     await asyncio.gather(*coro_list)
 
 
+def check_memes():
+    look at memes folder -> set()
+
+compare file at every extract

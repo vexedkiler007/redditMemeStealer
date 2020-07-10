@@ -1,11 +1,15 @@
 import asyncio
-from os.path import basename
-from typing import Awaitable, Coroutine
+import os
 import aiohttp
 from aiofile import AIOFile
 from bs4 import BeautifulSoup
-
+import random
 from arsenic import get_session, keys, browsers, services
+
+
+def check_file_exist(file_name):
+    path = f'Memes/{file_name}'
+    return os.path.isfile(path)
 
 
 async def save_meme(link, file_name):
@@ -21,7 +25,7 @@ async def extract_image(img: object):
     endings = ['jpg', 'png']
     try:
         link = img['src']
-        file_name = basename(link)
+        file_name = os.path.basename(link)
         file_name_list = file_name.split('.')
         if file_name_list[-1] not in endings:
             if 'png' in file_name_list[-1]:
@@ -30,23 +34,25 @@ async def extract_image(img: object):
             if 'jpg' in file_name_list[-1]:
                 file_name_list[-1] = '.jpg'
                 file_name = "".join(file_name_list)
-        await save_meme(link, file_name)
+        if not check_file_exist(file_name):
+            await save_meme(link, file_name)
+        else:
+            print("Already Exists")
     except KeyError as e:
         print(str(e) + " image")
 
 
-async def extract_images_video():
-    """
-    """
-    # --proxy-server=167.99.230.196:3128
-    # '--headless'
+async def extract_images_video(url: str, proxy_list: list = None):
     service = services.Chromedriver(binary="./chromedriver")
-    browser = browsers.Chrome(chromeOptions={
-        'args': ['--headless']
-    })
+    if proxy_list is not None:
+        browser = browsers.Chrome(chromeOptions={
+            'args': ['--headless', f"--proxy-server={random.choice(proxy_list)}"]
+        })
+    else:
+        browser = browsers.Chrome(chromeOptions={'args': ['--headless']})
 
     async with get_session(service, browser) as session:
-        await session.get('https://www.reddit.com/')
+        await session.get(url)
         source = await session.get_page_source()
         soup = BeautifulSoup(source, 'html.parser')
         container = soup.find(class_="rpBJOHq2PR60pnwJlUyP0")
@@ -54,16 +60,17 @@ async def extract_images_video():
             await extract_image(img)
 
 
-async def gather():
+async def gather(url_list: list, proxy_list=None):
     coro_list = []
-    for _ in range(0, 2):
-        coro_list.append(extract_images_video())
+    for url in url_list:
+        coro_list.append(extract_images_video(url=url, proxy_list=proxy_list))
     await asyncio.gather(*coro_list)
 
 
 def main():
+    urls = ["https://www.reddit.com/", "https://www.reddit.com/r/dankmemes/", 'https://www.reddit.com/r/memes/']
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(gather())
+    loop.run_until_complete(gather(urls))
 
 
 if __name__ == '__main__':
