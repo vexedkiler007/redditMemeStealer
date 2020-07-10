@@ -23,3 +23,8 @@ def check_memes():
     look at memes folder -> set()
 
 compare file at every extract
+
+refactor for testing:
+    line 53 create new function ~
+    is meme function ~
+    line 36 new funtion

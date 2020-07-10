@@ -12,10 +12,15 @@ def check_file_exist(file_name):
     return os.path.isfile(path)
 
 
+def is_meme(response_header_length, img_size=15_000):
+    # 15,000 refers to the size of the file since memes tend to be larger pictures
+    return int(response_header_length) > img_size
+
+
 async def save_meme(link, file_name):
     async with aiohttp.ClientSession() as session:
         async with session.get(link) as response:
-            if int(response.headers['Content-Length']) > 15_000:
+            if is_meme(response.headers['Content-Length']):
                 async with AIOFile(f'Memes/{file_name}', 'wb') as afp:
                     await afp.write(await response.read())
                     await afp.fsync()
@@ -42,7 +47,14 @@ async def extract_image(img: object):
         print(str(e) + " image")
 
 
-async def extract_images_video(url: str, proxy_list: list = None):
+async def extract_images_video(source):
+    soup = BeautifulSoup(source, 'html.parser')
+    container = soup.find(class_="rpBJOHq2PR60pnwJlUyP0")
+    for img in container.find_all('img'):
+        await extract_image(img)
+
+
+async def create_source_selenium(url: str, proxy_list: list = None):
     service = services.Chromedriver(binary="./chromedriver")
     if proxy_list is not None:
         browser = browsers.Chrome(chromeOptions={
@@ -50,20 +62,16 @@ async def extract_images_video(url: str, proxy_list: list = None):
         })
     else:
         browser = browsers.Chrome(chromeOptions={'args': ['--headless']})
-
     async with get_session(service, browser) as session:
         await session.get(url)
-        source = await session.get_page_source()
-        soup = BeautifulSoup(source, 'html.parser')
-        container = soup.find(class_="rpBJOHq2PR60pnwJlUyP0")
-        for img in container.find_all('img'):
-            await extract_image(img)
+        return await session.get_page_source()
 
 
 async def gather(url_list: list, proxy_list=None):
     coro_list = []
     for url in url_list:
-        coro_list.append(extract_images_video(url=url, proxy_list=proxy_list))
+        source = await create_source_selenium(url, proxy_list)
+        coro_list.append(extract_images_video(source))
     await asyncio.gather(*coro_list)
 
 
